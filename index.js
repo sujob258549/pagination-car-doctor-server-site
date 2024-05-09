@@ -1,14 +1,24 @@
 const express = require('express')
 const app = express()
 const cors = require('cors');
+// use cokiparser jot
+const jwt = require('jsonwebtoken');
+const cookiparser = require('cookie-parser');
+
 require('dotenv').config()
 const port = process.env.PORT || 5000
 
 // care-doctor
 // SdjYiegAefI5WIeb
 
-app.use(cors());
+app.use(cors({
+    origin: [
+        'http://localhost:5173'
+    ],
+    credentials: true
+}));
 app.use(express.json())
+app.use(cookiparser())
 
 console.log(process.env.DB_USER)
 
@@ -31,6 +41,50 @@ async function run() {
         const productColoctin = client.db('product').collection('allproduct');
         const informationColuction = client.db('product').collection('contactinfo')
 
+        // jwt post all
+
+        app.post('/jwt', (req, res) => {
+            const user = req.body;
+            console.log('cookiss', req.cookies);
+            console.log('token', user);
+            const token = jwt.sign(user, process.env.DB_TOKEN, {
+                expiresIn: "360d"
+            })
+            res.cookie('token', token, {
+                httpOnly: true,
+                secure: true,
+                sameSite: 'none'
+            })
+                .send({ success: true })
+        })
+
+        // loger
+
+        const loger = (req, res, next) => {
+            next()
+        }
+        const varification = (req, res, next) => {
+            const token = req?.cookies?.token;
+            if(!token){
+                return res.status(401).send({message:"unAutorize"})
+            }
+           jwt.verify(token, process.env.DB_TOKEN , (err,decode)=>{
+            if(err){
+                return res.status(401).send({message:'UnAutorize'})
+            }
+            req.user(decode)
+            next()
+           })
+        }
+
+        // clear cocee
+
+        app.post('/logout', (req, res) => {
+            const user = req.body;
+            console.log("clear token", user);
+            res.clearCookie('token', { maxAge: 0 }).send({ success: true })
+        })
+
         // contact info
 
         app.post('/contact', async (req, res) => {
@@ -39,7 +93,20 @@ async function run() {
             res.send(findData)
         })
 
-        app.get('/contact', async(req, res)=>{
+        app.get('/contact', loger, async (req, res) => {
+            if(req.user.email !== req.query.email){
+                return res.status(403).send({message:"forbeden"})
+            }
+            let query = {};
+            if (req.query?.email) {
+                query = { email: req.query.email }
+            }
+            const result = await informationColuction.find(query).toArray();
+            res.send(result)
+
+        })
+
+        app.get('/contact', async (req, res) => {
             const result = await informationColuction.find().toArray();
             res.send(result)
         })
