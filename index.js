@@ -29,25 +29,39 @@ async function run() {
     try {
 
         const productColoctin = client.db('product').collection('allproduct');
+        const informationColuction = client.db('product').collection('contactinfo')
+
+        // contact info
+
+        app.post('/contact', async (req, res) => {
+            const data = req.body;
+            const findData = await informationColuction.insertOne(data);
+            res.send(findData)
+        })
+
+        app.get('/contact', async(req, res)=>{
+            const result = await informationColuction.find().toArray();
+            res.send(result)
+        })
 
         app.get('/allProduct', async (req, res) => {
             const page = parseInt(req.query.page);
             const size = parseInt(req.query.size);
             const carsor = productColoctin.find();
             const result = await carsor
-            .skip(page * size)
-            .limit(size)
-            .toArray()
-            
+                .skip(page * size)
+                .limit(size)
+                .toArray()
+
             res.send(result)
 
             // const product = productColoctin.find().toArray();
             // res.send(product)
         })
 
-        app.get('/productCount', async(req, res)=>{
+        app.get('/productCount', async (req, res) => {
             const count = await productColoctin.estimatedDocumentCount();
-            res.send({count})
+            res.send({ count })
         })
 
         // Connect the client to the server	(optional starting in v4.7)
