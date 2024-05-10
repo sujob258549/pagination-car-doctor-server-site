@@ -45,8 +45,8 @@ async function run() {
 
         app.post('/jwt', (req, res) => {
             const user = req.body;
-            console.log('cookiss', req.cookies);
-            console.log('token', user);
+            // console.log('cookiss', req.cookies);
+            // console.log('token', user);
             const token = jwt.sign(user, process.env.DB_TOKEN, {
                 expiresIn: "360d"
             })
@@ -65,16 +65,16 @@ async function run() {
         }
         const varification = (req, res, next) => {
             const token = req?.cookies?.token;
-            if(!token){
-                return res.status(401).send({message:"unAutorize"})
+            if (!token) {
+                return res.status(401).send({ message: "unAutorize" })
             }
-           jwt.verify(token, process.env.DB_TOKEN , (err,decode)=>{
-            if(err){
-                return res.status(401).send({message:'UnAutorize'})
-            }
-            req.user(decode)
-            next()
-           })
+            jwt.verify(token, process.env.DB_TOKEN, (err, decoded) => {
+                if (err) {
+                    return res.status(401).send({ message: 'UnAutorize' })
+                }
+                req.user(decoded)
+                next()
+            })
         }
 
         // clear cocee
@@ -93,15 +93,15 @@ async function run() {
             res.send(findData)
         })
 
-        app.get('/contact', loger, async (req, res) => {
-            if(req.user.email !== req.query.email){
-                return res.status(403).send({message:"forbeden"})
+        app.get('/contact', varification, varification, async (req, res) => {
+            if (req.user.email !== req.query.email) {
+                return res.status(403).send({ message: "forbeden" })
             }
             let query = {};
             if (req.query?.email) {
                 query = { email: req.query.email }
             }
-            const result = await informationColuction.find(query).toArray();
+            const result = await informationColuction.find().toArray();
             res.send(result)
 
         })
@@ -114,20 +114,54 @@ async function run() {
         app.get('/allProduct', async (req, res) => {
             const page = parseInt(req.query.page);
             const size = parseInt(req.query.size);
-            const carsor = productColoctin.find();
+
+            // catagory filter
+            const catagory = req.query.catagory
+            const serchText = req.query.serchText
+            // catagory datas
+            // let datas = {};
+
+            // catagory and secrch
+            let datas = {
+                // secrch datas store
+                category: { $regex: serchText, $options: 'i' }
+            };
+            if (catagory) datas = { ...datas, category: catagory }
+
+            // short
+            const sort = req.query.sort
+            let option = {};
+            if (sort) option = { price: sort === 'assan' ? 1 : -1 }
+            // console.log(119, option, sort);
+            const carsor = productColoctin.find(datas).sort(option)
+            // short close assanding
+
             const result = await carsor
                 .skip(page * size)
                 .limit(size)
                 .toArray()
-
+            console.log(result);
             res.send(result)
+
 
             // const product = productColoctin.find().toArray();
             // res.send(product)
         })
 
         app.get('/productCount', async (req, res) => {
-            const count = await productColoctin.estimatedDocumentCount();
+            // let datas = {
+            //     // secrch datas store
+            //     category: { $regex: serchText, $options: 'i' }
+            // };
+            // if (catagory) datas = { ...datas, category: catagory }
+
+            // // short
+            // const sort = req.query.sort
+            // let option = {};
+            // if (sort) option = { price: sort === 'assan' ? 1 : -1 }
+            // // console.log(119, option, sort);
+            // const count = await productColoctin.estimatedDocumentCount(datas).sort(option);
+            const count = await productColoctin.countDocuments(req.query)
             res.send({ count })
         })
 
